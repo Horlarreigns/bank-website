@@ -1,0 +1,777 @@
+
+</html>import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
+
+// --- Type Definitions ---
+interface User {
+  fullName: string;
+  phoneNumber: string;
+  age: string; // Keep as string from form input
+  address: string;
+  accountNumber: string;
+  routingNumber: string; // Usually static for a bank, but kept per user for this sim
+  pin: string; // Store PIN for simulation (INSECURE IN REAL APP)
+}
+
+interface Transaction {
+  id: string;
+  date: Date;
+  type: 'Deposit' | 'Withdrawal';
+  amount: number;
+  description: string;
+  receiptDetails: string; // Details for printable receipt
+}
+
+interface DepositFormData {
+    accountType: 'current' | 'savings';
+    amount: string;
+    pin: string;
+}
+
+interface WithdrawFormData {
+    bankName: string;
+    accountNumber: string;
+    routingNumber: string;
+    pin: string;
+    amount: string;
+}
+
+interface SettingsFormData {
+    fullName: string;
+    phoneNumber: string;
+    currentPassword?: string; // Optional for password change UI
+    newPassword?: string;
+    confirmPassword?: string;
+}
+
+
+// --- Main Component ---
+export default function CalvertImpactCapitalWebsite() {
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [currentPage, setCurrentPage] = useState<'signup' | 'login' | 'dashboard' | 'transactions' | 'settings'>('signup');
+  const [user, setUser] = useState<User | null>(null);
+  const [balance, setBalance] = useState<number>(0); // Initial balance
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [showDepositModal, setShowDepositModal] = useState<boolean>(false);
+  const [showWithdrawModal, setShowWithdrawModal] = useState<boolean>(false);
+  const [notification, setNotification] = useState<string | null>(null);
+
+  // --- Form States ---
+  const [signupForm, setSignupForm] = useState({
+    fullName: '',
+    phoneNumber: '',
+    age: '',
+    address: '',
+    pin: '', // Add PIN during signup for simulation
+    confirmPin: ''
+  });
+
+  const [loginForm, setLoginForm] = useState({
+    accountNumber: '', // Using account number to login for simplicity
+    pin: '',
+  });
+
+   const [depositForm, setDepositForm] = useState<DepositFormData>({
+    accountType: 'current',
+    amount: '',
+    pin: '',
+   });
+
+   const [withdrawForm, setWithdrawForm] = useState<WithdrawFormData>({
+    bankName: '',
+    accountNumber: '',
+    routingNumber: '',
+    pin: '',
+    amount: '',
+   });
+
+  const [settingsForm, setSettingsForm] = useState<SettingsFormData>({
+    fullName: '',
+    phoneNumber: '',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+
+  // --- Effects ---
+  useEffect(() => {
+    // Simulate loading user data if logged in (e.g., from localStorage, but not implemented here)
+    // For now, reset state on reload if not logged in
+    if (!isLoggedIn) {
+       // Reset potentially sensitive state if not logged in
+       setUser(null);
+       setBalance(0);
+       setTransactions([]);
+       setCurrentPage('signup'); // Default to signup if not logged in
+    }
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 5000); // Auto-hide notification
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  useEffect(() => {
+    // Pre-fill settings form when user data is available
+    if (user && currentPage === 'settings') {
+        setSettingsForm(prev => ({
+            ...prev, // Keep password fields empty
+            fullName: user.fullName,
+            phoneNumber: user.phoneNumber,
+        }));
+    }
+  }, [user, currentPage]);
+
+
+  // --- Helper Functions ---
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    const formMap = {
+      signup: setSignupForm,
+      login: setLoginForm,
+      deposit: setDepositForm,
+      withdraw: setWithdrawForm,
+      settings: setSettingsForm,
+    };
+
+    // Determine which form state to update based on the input name prefix or context
+    if (name.startsWith('signup_')) formMap.signup(prev => ({ ...prev, [name.replace('signup_', '')]: value }));
+    else if (name.startsWith('login_')) formMap.login(prev => ({ ...prev, [name.replace('login_', '')]: value }));
+    else if (name.startsWith('deposit_')) formMap.deposit(prev => ({ ...prev, [name.replace('deposit_', '')]: value }));
+    else if (name.startsWith('withdraw_')) formMap.withdraw(prev => ({ ...prev, [name.replace('withdraw_', '')]: value }));
+    else if (name.startsWith('settings_')) formMap.settings(prev => ({ ...prev, [name.replace('settings_', '')]: value }));
+  };
+
+ const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  };
+
+ const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+ };
+
+  const showNotification = (message: string) => {
+    setNotification(message);
+  };
+
+  // --- Action Handlers ---
+  const handleSignup = (e: FormEvent) => {
+    e.preventDefault();
+    if (signupForm.pin !== signupForm.confirmPin) {
+      showNotification("PINs do not match.");
+      return;
+    }
+    if (!signupForm.fullName || !signupForm.phoneNumber || !signupForm.age || !signupForm.address || !signupForm.pin) {
+        showNotification("Please fill all required fields.");
+        return;
+    }
+    // Simulate account creation
+    const newUser: User = {
+      fullName: signupForm.fullName,
+      phoneNumber: signupForm.phoneNumber,
+      age: signupForm.age,
+      address: signupForm.address,
+      accountNumber: Math.random().toString().slice(2, 12), // Generate random account number
+      routingNumber: '012345678', // Example routing number
+      pin: signupForm.pin, // Store PIN for simulation
+    };
+    setUser(newUser);
+    setIsLoggedIn(true);
+    setBalance(0); // Start with zero balance
+    setTransactions([]);
+    setCurrentPage('dashboard');
+    showNotification(`Signup successful! Welcome, ${newUser.fullName}. Your Account Number: ${newUser.accountNumber}`);
+    // Reset form
+     setSignupForm({ fullName: '', phoneNumber: '', age: '', address: '', pin: '', confirmPin: ''});
+  };
+
+  const handleLogin = (e: FormEvent) => {
+    e.preventDefault();
+    // Simulate login - INSECURE: In a real app, verify against backend
+    // Here we just pretend a user exists with this account number and pin
+    if (loginForm.accountNumber && loginForm.pin) { // Basic check
+      const loggedInUser: User = { // Simulate fetching user
+        fullName: "Jane Doe (Simulated)", // Use placeholder data
+        phoneNumber: "555-1234",
+        age: "30",
+        address: "123 Main St",
+        accountNumber: loginForm.accountNumber,
+        routingNumber: "012345678",
+        pin: loginForm.pin
+      };
+      setUser(loggedInUser);
+      setIsLoggedIn(true);
+      // Simulate fetching balance and transactions
+      setBalance(5432.10);
+      setTransactions([
+        { id: 't1', date: new Date(Date.now() - 86400000 * 2), type: 'Deposit', amount: 6000, description: 'Initial Deposit', receiptDetails: 'Initial deposit received.' },
+        { id: 't2', date: new Date(Date.now() - 86400000), type: 'Withdrawal', amount: 567.90, description: 'Online Purchase', receiptDetails: 'Withdrawal for online purchase at Example Store.' },
+      ]);
+      setCurrentPage('dashboard');
+      showNotification(`Login successful! Welcome back.`);
+      setLoginForm({ accountNumber: '', pin: '' }); // Reset form
+    } else {
+      showNotification("Invalid Account Number or PIN.");
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUser(null);
+    setBalance(0);
+    setTransactions([]);
+    setCurrentPage('login'); // Go to login page after logout
+    showNotification("You have been logged out.");
+  };
+
+ const handleDeposit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!user || !depositForm.amount || !depositForm.pin) {
+      showNotification("Please fill all deposit fields.");
+      return;
+    }
+    if (depositForm.pin !== user.pin) {
+      showNotification("Incorrect PIN.");
+      return;
+    }
+    const amount = parseFloat(depositForm.amount);
+    if (isNaN(amount) || amount <= 0) {
+      showNotification("Invalid deposit amount.");
+      return;
+    }
+
+    const newTransaction: Transaction = {
+        id: `T${Date.now()}`,
+        date: new Date(),
+        type: 'Deposit',
+        amount: amount,
+        description: `Deposit to ${depositForm.accountType} account`,
+        receiptDetails: `Deposit of ${formatCurrency(amount)} to ${depositForm.accountType} account on ${formatDate(new Date())}.`,
+    };
+
+    setBalance(prev => prev + amount);
+    setTransactions(prev => [newTransaction, ...prev]); // Add to beginning
+    setShowDepositModal(false);
+    showNotification(`Successfully deposited ${formatCurrency(amount)}.`);
+    setDepositForm({ accountType: 'current', amount: '', pin: '' }); // Reset form
+  };
+
+ const handleWithdraw = (e: FormEvent) => {
+    e.preventDefault();
+     if (!user || !withdrawForm.amount || !withdrawForm.pin || !withdrawForm.accountNumber || !withdrawForm.routingNumber || !withdrawForm.bankName) {
+        showNotification("Please fill all withdrawal fields.");
+        return;
+     }
+    if (withdrawForm.pin !== user.pin) {
+      showNotification("Incorrect PIN.");
+      return;
+    }
+    const amount = parseFloat(withdrawForm.amount);
+    if (isNaN(amount) || amount <= 0) {
+      showNotification("Invalid withdrawal amount.");
+      return;
+    }
+    if (amount > balance) {
+      showNotification("Insufficient funds.");
+      return;
+    }
+
+    const newTransaction: Transaction = {
+        id: `T${Date.now()}`,
+        date: new Date(),
+        type: 'Withdrawal',
+        amount: amount,
+        description: `Withdrawal to ${withdrawForm.bankName}`,
+        receiptDetails: `Withdrawal of ${formatCurrency(amount)} to Account ending in ${withdrawForm.accountNumber.slice(-4)} at ${withdrawForm.bankName} (Routing: ${withdrawForm.routingNumber}) on ${formatDate(new Date())}.`,
+    };
+
+    setBalance(prev => prev - amount);
+    setTransactions(prev => [newTransaction, ...prev]);
+    setShowWithdrawModal(false);
+    showNotification(`Successfully withdrew ${formatCurrency(amount)}.`);
+    setWithdrawForm({ bankName: '', accountNumber: '', routingNumber: '', pin: '', amount: '' }); // Reset form
+ };
+
+  const handleSettingsSave = (e: FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    let changesMade = false;
+    let notificationMessage = "Settings updated: ";
+    const updatedUser = { ...user };
+
+    // Update phone number
+    if (settingsForm.phoneNumber && settingsForm.phoneNumber !== user.phoneNumber) {
+        updatedUser.phoneNumber = settingsForm.phoneNumber;
+        notificationMessage += "Phone Number updated. ";
+        changesMade = true;
+    }
+
+    // Update password (very basic simulation)
+    if (settingsForm.newPassword && settingsForm.confirmPassword) {
+        if (settingsForm.newPassword !== settingsForm.confirmPassword) {
+            showNotification("New passwords do not match.");
+            return;
+        }
+        // In real app, verify settingsForm.currentPassword against the stored hash
+        if (!settingsForm.currentPassword || settingsForm.currentPassword !== user.pin) { // Using PIN as password for sim
+            showNotification("Incorrect current password/PIN.");
+            return;
+        }
+        updatedUser.pin = settingsForm.newPassword; // Update PIN/Password (INSECURE)
+        notificationMessage += "Password updated. ";
+        changesMade = true;
+    }
+
+    if (changesMade) {
+        setUser(updatedUser);
+        showNotification(notificationMessage.trim());
+        // Reset password fields after save
+        setSettingsForm(prev => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: ''}));
+    } else {
+        showNotification("No changes detected.");
+    }
+  };
+
+   const printReceipt = (transaction: Transaction) => {
+    const printWindow = window.open('', '_blank', 'height=400,width=600');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head><title>Transaction Receipt - ${transaction.id}</title>
+          <style>
+            body { font-family: sans-serif; padding: 20px; }
+            h1 { color: #1E40AF; /* blue-800 */ margin-bottom: 10px;}
+            p { margin: 5px 0; }
+            strong { display: inline-block; width: 100px; }
+          </style>
+          </head>
+          <body>
+            <h1>Calvert Impact Capital</h1>
+            <h2>Transaction Receipt</h2>
+            <p><strong>Transaction ID:</strong> ${transaction.id}</p>
+            <p><strong>Date:</strong> ${formatDate(transaction.date)}</p>
+            <p><strong>Type:</strong> ${transaction.type}</p>
+            <p><strong>Amount:</strong> ${formatCurrency(transaction.amount)}</p>
+            <p><strong>Description:</strong> ${transaction.description}</p>
+            <hr/>
+            <p>${transaction.receiptDetails.replace(/\n/g, '<br/>')}</p>
+            <script>
+              window.onload = function() {
+                window.print();
+                // window.close(); // You might want to close automatically, or let user close
+              }
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+    }
+  };
+
+
+  // --- Render Components ---
+
+  const Header = () => (
+    <header className="bg-gradient-to-r from-blue-700 to-blue-900 text-white p-4 shadow-md">
+      <div className="container mx-auto flex justify-between items-center">
+        <div className="flex items-center space-x-3">
+           {/* Placeholder Logo */}
+           <div className="bg-white border-2 border-blue-300 rounded-full w-12 h-12 flex items-center justify-center text-blue-800 font-bold text-xl shadow-inner">
+             CIC
+           </div>
+           <span className="text-2xl font-bold tracking-tight">Calvert Impact Capital</span>
+        </div>
+        <nav className="space-x-4 flex items-center">
+          {isLoggedIn && user ? (
+            <>
+              <button onClick={() => setCurrentPage('dashboard')} className={`hover:text-blue-200 ${currentPage === 'dashboard' ? 'font-semibold text-blue-100 underline' : ''}`}>Dashboard</button>
+              <button onClick={() => setCurrentPage('transactions')} className={`hover:text-blue-200 ${currentPage === 'transactions' ? 'font-semibold text-blue-100 underline' : ''}`}>Transactions</button>
+              <button onClick={() => setCurrentPage('settings')} className={`hover:text-blue-200 ${currentPage === 'settings' ? 'font-semibold text-blue-100 underline' : ''}`}>Settings</button>
+              <a href="http://wa.me/16018127198" target="_blank" rel="noopener noreferrer" className="hover:text-blue-200">Support</a>
+              <button
+                 onClick={handleLogout}
+                 className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md shadow transition duration-150 ease-in-out"
+              >
+                 Logout
+              </button>
+            </>
+          ) : (
+             <>
+                <button onClick={() => setCurrentPage('login')} className={`hover:text-blue-200 ${currentPage === 'login' ? 'font-semibold text-blue-100 underline' : ''}`}>Login</button>
+                <button onClick={() => setCurrentPage('signup')} className={`hover:text-blue-200 ${currentPage === 'signup' ? 'font-semibold text-blue-100 underline' : ''}`}>Sign Up</button>
+                <a href="http://wa.me/16018127198" target="_blank" rel="noopener noreferrer" className="hover:text-blue-200">Support</a>
+             </>
+          )}
+        </nav>
+      </div>
+    </header>
+  );
+
+  const Footer = () => (
+     <footer className="bg-gray-800 text-gray-300 p-4 mt-12">
+        <div className="container mx-auto text-center text-sm">
+           &copy; {new Date().getFullYear()} Calvert Impact Capital. All rights reserved.
+           {/* "simulated" text is explicitly hidden as requested */}
+           <div className="mt-2">
+             {/* Only include necessary links, avoid "demo" or "simulated" */}
+             <a href="http://wa.me/16018127198" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 mx-2">Contact Support</a>
+             {/* <a href="#" className="hover:text-gray-100 mx-2">Privacy Policy</a>
+             <a href="#" className="hover:text-gray-100 mx-2">Terms of Service</a> */}
+           </div>
+        </div>
+     </footer>
+  );
+
+ const Notification = () => notification && (
+    <div className="fixed top-4 right-4 bg-green-500 text-white p-3 rounded-md shadow-lg z-50 animate-pulse">
+        {notification}
+        <button onClick={() => setNotification(null)} className="ml-4 text-white font-bold">X</button>
+    </div>
+ );
+
+
+  // --- Page/Modal Components ---
+
+ const SignupForm = () => (
+    <div className="max-w-md mx-auto mt-10 p-8 bg-white rounded-lg shadow-xl border border-gray-200">
+        <h2 className="text-3xl font-bold text-center text-blue-800 mb-8">Create Your Account</h2>
+        <form onSubmit={handleSignup} className="space-y-5">
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                <input type="text" name="signup_fullName" value={signupForm.fullName} onChange={handleInputChange} required className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"/>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                <input type="tel" name="signup_phoneNumber" value={signupForm.phoneNumber} onChange={handleInputChange} required className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"/>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
+                <input type="number" name="signup_age" value={signupForm.age} onChange={handleInputChange} required className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"/>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                <input type="text" name="signup_address" value={signupForm.address} onChange={handleInputChange} required className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"/>
+            </div>
+             <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Create PIN (4-6 digits)</label>
+                <input type="password" name="signup_pin" value={signupForm.pin} onChange={handleInputChange} required pattern="\d{4,6}" title="PIN must be 4 to 6 digits" maxLength={6} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"/>
+            </div>
+             <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Confirm PIN</label>
+                <input type="password" name="signup_confirmPin" value={signupForm.confirmPin} onChange={handleInputChange} required maxLength={6} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"/>
+                 {signupForm.pin && signupForm.confirmPin && signupForm.pin !== signupForm.confirmPin && (
+                     <p className="text-red-500 text-xs mt-1">PINs do not match.</p>
+                 )}
+            </div>
+            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-md shadow-md transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Sign Up
+            </button>
+            <p className="text-center text-sm text-gray-600 mt-4">
+                Already have an account? <button type="button" onClick={() => setCurrentPage('login')} className="text-blue-600 hover:underline font-medium">Login here</button>
+            </p>
+        </form>
+    </div>
+ );
+
+ const LoginForm = () => (
+    <div className="max-w-md mx-auto mt-10 p-8 bg-white rounded-lg shadow-xl border border-gray-200">
+        <h2 className="text-3xl font-bold text-center text-blue-800 mb-8">Welcome Back!</h2>
+         {/* Placeholder Banking Image */}
+        <div className="mb-6 h-40 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center">
+            <svg className="w-16 h-16 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0c-1.657 0-3-.895-3-2s1.343-2 3-2 3-.895 3-2 1.343-2 3-2m0 8c1.11 0 2.08-.402 2.599-1M12 16v1m0-1v-8m0 0c1.657 0 3 .895 3 2s-1.343 2-3 2-3 .895-3 2 1.343 2 3 2m7.401-7A7.962 7.962 0 0012 4a7.962 7.962 0 00-7.401 5M4.599 9A7.963 7.963 0 0012 12v4c4.418 0 8-3.582 8-8a7.963 7.963 0 00-7.401-7"></path></svg>
+        </div>
+        <form onSubmit={handleLogin} className="space-y-5">
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Account Number</label>
+                <input type="text" name="login_accountNumber" value={loginForm.accountNumber} onChange={handleInputChange} required className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"/>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">PIN</label>
+                <input type="password" name="login_pin" value={loginForm.pin} onChange={handleInputChange} required maxLength={6} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"/>
+            </div>
+            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-md shadow-md transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Login
+            </button>
+             <p className="text-center text-sm text-gray-600 mt-4">
+                Don't have an account? <button type="button" onClick={() => setCurrentPage('signup')} className="text-blue-600 hover:underline font-medium">Sign up here</button>
+            </p>
+        </form>
+    </div>
+ );
+
+ const Dashboard = () => user && (
+    <div className="container mx-auto mt-8 px-4">
+        <h2 className="text-3xl font-semibold text-gray-800 mb-2">Welcome, {user.fullName}!</h2>
+        <p className="text-lg text-gray-600 mb-6">Your Account: {user.accountNumber}</p>
+
+         {/* Balance Card */}
+        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-6 rounded-lg shadow-lg mb-8 flex justify-between items-center">
+            <div>
+                <p className="text-sm uppercase tracking-wide text-blue-100">Available Balance</p>
+                <p className="text-4xl font-bold">{formatCurrency(balance)}</p>
+            </div>
+             {/* Placeholder image/icon */}
+            <svg className="w-16 h-16 text-blue-200 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+        </div>
+
+         {/* Action Buttons */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+             <button
+                onClick={() => setShowDepositModal(true)}
+                className="bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg shadow-md transition duration-150 ease-in-out flex items-center justify-center space-x-2 text-lg"
+            >
+                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                 <span>Deposit Funds</span>
+            </button>
+             <button
+                onClick={() => setShowWithdrawModal(true)}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-6 rounded-lg shadow-md transition duration-150 ease-in-out flex items-center justify-center space-x-2 text-lg"
+            >
+                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                 <span>Withdraw Funds</span>
+            </button>
+        </div>
+
+         {/* Quick Transaction Overview */}
+        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <h3 className="text-xl font-semibold text-gray-700 mb-4">Recent Activity</h3>
+            {transactions.length > 0 ? (
+                <ul className="space-y-3 max-h-60 overflow-y-auto">
+                   {transactions.slice(0, 5).map(tx => ( // Show latest 5
+                      <li key={tx.id} className="flex justify-between items-center border-b border-gray-100 pb-2 last:border-b-0">
+                         <div>
+                           <p className={`font-medium ${tx.type === 'Deposit' ? 'text-green-600' : 'text-red-600'}`}>{tx.type}</p>
+                           <p className="text-sm text-gray-500">{tx.description}</p>
+                         </div>
+                         <div className="text-right">
+                             <p className={`font-semibold ${tx.type === 'Deposit' ? 'text-green-700' : 'text-red-700'}`}>{tx.type === 'Deposit' ? '+' : '-'}{formatCurrency(tx.amount)}</p>
+                             <p className="text-xs text-gray-400">{formatDate(tx.date)}</p>
+                         </div>
+                      </li>
+                   ))}
+                </ul>
+            ) : (
+                <p className="text-gray-500">No recent transactions found.</p>
+            )}
+             <button onClick={() => setCurrentPage('transactions')} className="mt-4 text-blue-600 hover:underline font-medium">View All Transactions</button>
+        </div>
+    </div>
+ );
+
+ const TransactionsList = () => (
+     <div className="container mx-auto mt-8 px-4">
+        <h2 className="text-3xl font-semibold text-gray-800 mb-6">Transaction History</h2>
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md border border-gray-200 overflow-x-auto">
+            {transactions.length > 0 ? (
+                <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                        <tr>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                            <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Receipt</th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                        {transactions.map((tx) => (
+                            <tr key={tx.id} className="hover:bg-gray-50 transition-colors duration-150">
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(tx.date)}</td>
+                                <td className="px-4 py-4 whitespace-nowrap">
+                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${tx.type === 'Deposit' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                        {tx.type}
+                                    </span>
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">{tx.description}</td>
+                                <td className={`px-4 py-4 whitespace-nowrap text-sm font-medium text-right ${tx.type === 'Deposit' ? 'text-green-600' : 'text-red-600'}`}>
+                                    {tx.type === 'Deposit' ? '+' : '-'}{formatCurrency(tx.amount)}
+                                </td>
+                                 <td className="px-4 py-4 whitespace-nowrap text-center text-sm font-medium">
+                                    <button
+                                        onClick={() => printReceipt(tx)}
+                                        className="text-blue-600 hover:text-blue-800 hover:underline"
+                                    >
+                                        Print
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            ) : (
+                <p className="text-center text-gray-500 py-8">No transactions recorded yet.</p>
+            )}
+        </div>
+    </div>
+ );
+
+ const Settings = () => user && (
+     <div className="container mx-auto mt-8 px-4 max-w-2xl">
+        <h2 className="text-3xl font-semibold text-gray-800 mb-6">Settings</h2>
+
+        <form onSubmit={handleSettingsSave} className="bg-white p-6 rounded-lg shadow-md border border-gray-200 space-y-6">
+
+            {/* Profile Information Section */}
+            <div className="border-b border-gray-200 pb-4">
+                <h3 className="text-xl font-semibold text-gray-700 mb-3">Profile Information</h3>
+                 <div className="space-y-3">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-500">Full Name</label>
+                        <p className="mt-1 text-lg text-gray-900">{user.fullName} (Read-only)</p>
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-gray-500">Account Number</label>
+                        <p className="mt-1 text-lg text-gray-900">{user.accountNumber} (Read-only)</p>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-500">Age</label>
+                        <p className="mt-1 text-lg text-gray-900">{user.age} (Read-only)</p>
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-gray-500">Address</label>
+                        <p className="mt-1 text-lg text-gray-900">{user.address} (Read-only)</p>
+                    </div>
+                    <div>
+                        <label htmlFor="settings_phoneNumber" className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                        <input
+                            type="tel"
+                            id="settings_phoneNumber"
+                            name="settings_phoneNumber"
+                            value={settingsForm.phoneNumber}
+                            onChange={handleInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                         />
+                    </div>
+                 </div>
+            </div>
+
+             {/* Change Password Section */}
+            <div className="border-b border-gray-200 pb-4">
+                <h3 className="text-xl font-semibold text-gray-700 mb-3">Change Password / PIN</h3>
+                <div className="space-y-3">
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Current Password/PIN</label>
+                        <input type="password" name="settings_currentPassword" value={settingsForm.currentPassword} onChange={handleInputChange} maxLength={6} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"/>
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">New Password/PIN (4-6 digits)</label>
+                        <input type="password" name="settings_newPassword" value={settingsForm.newPassword} onChange={handleInputChange} pattern="\d{4,6}" title="PIN must be 4 to 6 digits" maxLength={6} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"/>
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password/PIN</label>
+                        <input type="password" name="settings_confirmPassword" value={settingsForm.confirmPassword} onChange={handleInputChange} maxLength={6} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"/>
+                         {settingsForm.newPassword && settingsForm.confirmPassword && settingsForm.newPassword !== settingsForm.confirmPassword && (
+                             <p className="text-red-500 text-xs mt-1">New passwords/PINs do not match.</p>
+                         )}
+                    </div>
+                </div>
+            </div>
+
+             {/* Save Button */}
+            <div className="flex justify-end pt-2">
+                 <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md shadow transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Save Changes
+                 </button>
+            </div>
+        </form>
+     </div>
+ );
+
+ const Modal = ({ title, children, onClose }: { title: string, children: React.ReactNode, onClose: () => void }) => (
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-40 p-4 backdrop-blur-sm">
+        <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative border border-gray-200">
+            <button onClick={onClose} className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-2xl font-bold">&times;</button>
+            <h3 className="text-2xl font-semibold text-blue-800 mb-5 text-center">{title}</h3>
+            {children}
+        </div>
+    </div>
+ );
+
+ const DepositModal = () => (
+     <Modal title="Deposit Funds" onClose={() => setShowDepositModal(false)}>
+        <form onSubmit={handleDeposit} className="space-y-4">
+             <div>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">Account Type</label>
+                 <select name="deposit_accountType" value={depositForm.accountType} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white">
+                     <option value="current">Current Account</option>
+                     <option value="savings">Savings Account</option>
+                 </select>
+             </div>
+             <div>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">Amount (Add Cash)</label>
+                 <input type="number" name="deposit_amount" value={depositForm.amount} onChange={handleInputChange} required min="0.01" step="0.01" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="0.00"/>
+             </div>
+             <div>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">Your PIN</label>
+                 <input type="password" name="deposit_pin" value={depositForm.pin} onChange={handleInputChange} required maxLength={6} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Enter your PIN"/>
+             </div>
+             <button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-md shadow-md transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                 Deposit
+             </button>
+        </form>
+     </Modal>
+ );
+
+ const WithdrawModal = () => (
+     <Modal title="Withdraw Funds" onClose={() => setShowWithdrawModal(false)}>
+        <form onSubmit={handleWithdraw} className="space-y-4">
+            <div>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                 <input type="number" name="withdraw_amount" value={withdrawForm.amount} onChange={handleInputChange} required min="0.01" step="0.01" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="0.00"/>
+            </div>
+             <div>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">Withdraw To Bank Name</label>
+                 <input type="text" name="withdraw_bankName" value={withdrawForm.bankName} onChange={handleInputChange} required className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="e.g., Chase, Wells Fargo"/>
+             </div>
+             <div>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">Recipient Account Number</label>
+                 <input type="text" name="withdraw_accountNumber" value={withdrawForm.accountNumber} onChange={handleInputChange} required pattern="\d+" title="Account number should only contain digits" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Recipient's Account Number"/>
+             </div>
+             <div>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">Recipient Routing Number</label>
+                 <input type="text" name="withdraw_routingNumber" value={withdrawForm.routingNumber} onChange={handleInputChange} required pattern="\d{9}" title="Routing number must be 9 digits" maxLength={9} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="9-digit Routing Number"/>
+             </div>
+             <div>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">Your PIN</label>
+                 <input type="password" name="withdraw_pin" value={withdrawForm.pin} onChange={handleInputChange} required maxLength={6} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Enter your PIN to confirm"/>
+             </div>
+             <button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-md shadow-md transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                 Withdraw
+             </button>
+        </form>
+     </Modal>
+ );
+
+
+  // --- Main Render ---
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-100">
+      <Header />
+      <Notification />
+      {showDepositModal && <DepositModal />}
+      {showWithdrawModal && <WithdrawModal />}
+
+      <main className="flex-grow">
+        {!isLoggedIn ? (
+           <>
+             {currentPage === 'signup' && <SignupForm />}
+             {currentPage === 'login' && <LoginForm />}
+             {/* Fallback for logged-out state if somehow on other pages */}
+             {currentPage !== 'signup' && currentPage !== 'login' && <LoginForm />}
+           </>
+        ) : (
+           <>
+              {currentPage === 'dashboard' && <Dashboard />}
+              {currentPage === 'transactions' && <TransactionsList />}
+              {currentPage === 'settings' && <Settings />}
+           </>
+        )}
+      </main>
+
+      <Footer />
+    </div>
+  );
+}
